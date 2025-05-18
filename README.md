@@ -32,7 +32,7 @@ On each push to `main`, GitHub Actions runs the deployment workflow.
 - Never upload your `.pem` key to GitHub.
 - Always set correct permissions (`chmod 400 my-key.pem`).
 
-- This sample wordpress dashboard which i had created
+- This is screenshot of wordpress dashboard which I have created
 .
 - ![image](https://github.com/user-attachments/assets/84bcedf7-1fa7-4ee4-8f03-e87ba69809d4)
 
