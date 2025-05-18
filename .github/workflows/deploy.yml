@@ -1,0 +1,36 @@
+name: Deploy WordPress on LAMP with Ansible
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python for Ansible
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible mysql-connector-python
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.8.1
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Run Ansible Playbooks
+        run: |
+          ansible-playbook -i ansible/inventory.ini ansible/install_lamp.yml
+          ansible-playbook -i ansible/inventory.ini ansible/install_wordpress.yml
+          ansible-playbook -i ansible/inventory.ini ansible/secure_wordpress.yml
+

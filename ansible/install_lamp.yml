@@ -1,0 +1,96 @@
+---
+- name: Install LAMP stack and deploy WordPress
+  hosts: wordpress_servers
+  become: yes
+
+  vars:
+    mysql_root_password: "StrongRootPass123"
+
+  tasks:
+    - name: Update APT packages
+      apt:
+        update_cache: yes
+
+    - name: Install Apache, MySQL, PHP
+      apt:
+        name:
+          - apache2
+          - mysql-server
+          - php
+          - php-mysql
+          - libapache2-mod-php
+          - php-cli
+          - unzip
+          - curl
+        state: present
+
+    - name: Install PyMySQL for Ansible MySQL support
+      apt:
+        name: python3-pymysql
+        state: present
+
+    - name: Enable Apache rewrite module
+      apache2_module:
+        name: rewrite
+        state: present
+
+    - name: Set MySQL root password
+      mysql_user:
+        name: root
+        host: localhost
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+
+    - name: Remove anonymous MySQL users
+      mysql_user:
+        name: ''
+        host_all: yes
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Disallow remote root login
+      mysql_user:
+        name: root
+        host: "{{ item }}"
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+      loop:
+        - "{{ ansible_hostname }}"
+        - '%'
+
+    - name: Remove test database
+      mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Reload MySQL privilege tables
+      command: mysql -u root -p{{ mysql_root_password }} -e "FLUSH PRIVILEGES;"
+
+    - name: Download WordPress
+      get_url:
+        url: https://wordpress.org/latest.tar.gz
+        dest: /tmp/wordpress.tar.gz
+
+    - name: Extract WordPress
+      unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /var/www/html/
+        remote_src: yes
+
+    - name: Set permissions for WordPress
+      file:
+        path: /var/www/html/wordpress
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+
+    - name: Restart Apache
+      service:
+        name: apache2
+        state: restarted
+

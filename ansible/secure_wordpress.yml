@@ -1,0 +1,63 @@
+- name: Secure WordPress site with SSL and configure Apache virtual host
+  hosts: wordpress_servers
+  become: yes
+  vars_files:
+    - wordpress_vars.yml
+
+  tasks:
+    - name: Install Certbot and python3-certbot-apache
+      apt:
+        name:
+          - certbot
+          - python3-certbot-apache
+        state: present
+        update_cache: yes
+
+    - name: Enable Apache rewrite module
+      command: a2enmod rewrite
+      notify:
+        - restart apache
+
+    - name: Create Apache site config for WordPress
+      copy:
+        dest: /etc/apache2/sites-available/wordpress.conf
+        content: |
+          <VirtualHost *:80>
+              ServerAdmin {{ admin_email }}
+              ServerName {{ wordpress_site_url }}
+              ServerAlias www.{{ wordpress_site_url }}
+              DocumentRoot /var/www/html/wordpress
+
+              <Directory /var/www/html/wordpress>
+                  Options FollowSymLinks
+                  AllowOverride All
+                  Require all granted
+              </Directory>
+
+              ErrorLog ${APACHE_LOG_DIR}/wordpress_error.log
+              CustomLog ${APACHE_LOG_DIR}/wordpress_access.log combined
+          </VirtualHost>
+      notify:
+        - restart apache
+
+    - name: Enable WordPress site
+      command: a2ensite wordpress.conf
+      notify:
+        - restart apache
+
+    - name: Disable default Apache site
+      command: a2dissite 000-default.conf
+      notify:
+        - restart apache
+
+    - name: Obtain Let's Encrypt SSL certificate
+      shell: certbot --apache --non-interactive --agree-tos -m {{ admin_email }} -d {{ wordpress_site_url }} -d www.{{ wordpress_site_url }}
+      register: certbot_result
+      changed_when: "'Congratulations!' in certbot_result.stdout"
+
+  handlers:
+    - name: restart apache
+      systemd:
+        name: apache2
+        state: restarted
+
